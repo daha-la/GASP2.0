@@ -9,6 +9,7 @@ This repo contains all code used to make GASP2.0. It contains the following subf
 - Model Architecture
 - Run
 - Results
+
 See below for a thorough descriptions of the different elements
 
 ## Alignment
