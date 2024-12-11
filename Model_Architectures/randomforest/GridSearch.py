@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
+
+"""
+Conducts a GridSearch on a Random Forest classifier.
+Read a tab-separated table with header as well as a list of model parameters from the command line.
+Writes the best parameters to a text file and cross-validation results to a tsv file.
+Infile columns:
+    (-c) A class column where 1 is for a positive and 0 for a negative observation.
+    (-F) Feature columns, either here on using -a/--annotate.
+    (-i) Optionally id column(s) that can map to features from (-a).
+"""
+
+# Importing the required libraries
 import argparse
 from argparse import RawTextHelpFormatter
+from typing import Union
 import sys
-import math
 import numpy as np
 import pandas as pd
-import csv
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_auc_score as AUC
-import joblib
 import logging as log
-import re
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import (
     precision_score,
@@ -21,14 +29,33 @@ from sklearn.metrics import (
     matthews_corrcoef,
     balanced_accuracy_score,
     ndcg_score,
+    average_precision_score,
     make_scorer
 )
+from src.helper_functions import hit_rate, param_into_list, feature_prep
 
+# Dictionary for evaluation metrics
+metric_dict = {"precision": make_scorer(precision_score),
+               "recall": make_scorer(recall_score),
+                "accuracy": make_scorer(accuracy_score),
+                "balanced-accuracy": make_scorer(balanced_accuracy_score),
+                "mcc": make_scorer(matthews_corrcoef),
+                "f1": make_scorer(f1_score),
+                "auc-roc": make_scorer(roc_auc_score),
+                "ndcg": make_scorer(ndcg_score),
+                "ndcg_top10": make_scorer(ndcg_score,k=10),
+                "average_precision": make_scorer(average_precision_score),
+                "hit_rate_top1": make_scorer(hit_rate, k=1),
+                "hit_rate_top10": make_scorer(hit_rate, k=10)
+                }
+
+# Set up the argument parser
 def get_parser():
     parser = argparse.ArgumentParser(description="""
     Conduct a GridSearch on a Random Forest classifier. 
-    Reads a tab-separated table with header from stdin and writes prediction table to stdout, 
-    if testing. Infile columns:
+    Read a tab-separated table with header as well as a list of model parameters from the command line.
+    Writes the best parameters to a text file and cross-validation results to a tsv file.
+    Infile columns:
         (-c) A class column where 1 is for a positive and 0 for a negative observation. 
         (-F) Feature columns, either here on using -a/--annotate.
         (-i) Optionally id column(s) that can map to features from (-a).
@@ -54,8 +81,7 @@ def get_parser():
         help="The number of features to consider when looking for the best split.")
     parser.add_argument("--class-weight",
         help="Randomforest class weight. Default=equal weight to each datapoint.", choices=["balanced", "balanced_subsample"])
-    # uppercase Class since class is a reserved word
-    parser.add_argument("-c", "--class", dest="Class",
+    parser.add_argument("-c", "--class", dest="Class",# uppercase Class since class is a reserved word
         help="Name of column with class labels in training data. Default=class.", default="class")
     parser.add_argument("--log",
         help="Logging is sent to stderr. Set flag to a filename to also write to file.")
@@ -71,192 +97,199 @@ def get_parser():
         help="Defines the random state of the RandomForestClassifier", default=42)
     
     return parser
-
-def param_into_list(param):
-    if type(param) != list:
-        return [param]
-    else:
-        return param
     
-def param_grid_gen(n_estimators, criterion, max_depth, min_samples_split, min_samples_leaf, max_features):
+def param_grid_gen(n_estimators: Union[int,list], criterion: Union[str,list], max_depth: Union[int,list], min_samples_split: Union[int,list], min_samples_leaf: Union[int,list], max_features: Union[str,int,list]):
     """
     Construct parameter grid for GridSearch
-    :param n_estimators: number of trees
-    :param criterion: criterion for split quality
-    :param max_depth: maximum depth of trees
-    :param min_samples_split: minimum sample required for split
-    :param min_samples_leaf: minimum sample in leaf
-    :param max_features: number of features considered when looking for best split
-    :param bootstrap: whether trees are bootstrapped or built on entire dataset
-    :return: dict of parameter options
+
+    Args:
+        n_estimators (Union[int,list]): number of trees
+        criterion (Union[str,list]): criterion for split quality
+        max_depth (Union[int,list]): maximum depth of trees
+        min_samples_split (Union[int,list]): minimum sample required for split
+        min_samples_leaf (Union[int,list]): minimum sample in leaf
+        max_features (Union[int,list]): number of features considered when looking for best split
+    Return:
+        dict: dict of parameter options
     """
+
+    # Ensure that all parameters are lists
     n_estimators = param_into_list(n_estimators)
     criterion = param_into_list(criterion)
     max_depth = param_into_list(max_depth)
     min_samples_split = param_into_list(min_samples_split)
     min_samples_leaf = param_into_list(min_samples_leaf)
     max_features = param_into_list(max_features)
+
+    # Append None to max_depth if not already present
     if max_depth != [None]:
         max_depth.append(None)
-    #max_features.append(None)
+    
+    # Construct parameter grid
     param_grid = {"n_estimators": n_estimators,
                   "criterion": criterion,
                   "max_features": max_features,
                   "max_depth": max_depth,
                   "min_samples_split": min_samples_split,
                   "min_samples_leaf": min_samples_leaf}
-    #pprint(param_grid)
     return param_grid
 
-def grid_search(train, Class, param_grid, cv_search, metric,random_state):
+def grid_search(train: pd.DataFrame, Class: str, param_grid: dict, cv_search: int, metric: str, random_state: int):
+
     """
-    Conducting GridSearch
-    :param train: training data
-    :param Class: name of Class column in training data
-    :param param_grid: dict of parameter options
-    :param cv_search: k for crossvalidation
-    :param metric: evaluation metric for search
-    :return: trained best model, dict of best parameter options, and dataframe with cross-validation results
+    Conducting GridSearch on Random Forest Classifier using given parameter grid
+
+    Args:
+        train (pd.DataFrame): training data
+        Class (str): name of Class column in training data
+        param_grid (dict): dict of parameter options
+        cv_search (int): k for crossvalidation
+        metric (str): evaluation metric for search
+        random_state (int): random state for RandomForestClassifier
+
+    Returns:
+        best_params: dict of best parameter options for best model
+        cv_results_df: dataframe of cross-validation results
     """
-    metric_dict = {"precision": precision_score,
-                   "recall": recall_score,
-                   "accuracy": accuracy_score,
-                   "balanced-accuracy": balanced_accuracy_score,
-                   "mcc": matthews_corrcoef,
-                   "f1": f1_score,
-                   "auc-roc": roc_auc_score,
-                   "ndcg": make_scorer(ndcg_score,k=10)
-                  }
+
+    # Get evaluation metric
     eval_metric = metric_dict[metric]
-    scorer = make_scorer(eval_metric)
+
+    # Conduct GridSearch
     estimator = RandomForestClassifier(random_state=random_state)
-    gridsearch = GridSearchCV(estimator = estimator, param_grid = param_grid, cv = cv_search, verbose=0, n_jobs = -1, scoring=scorer)
+    gridsearch = GridSearchCV(estimator = estimator, param_grid = param_grid, cv = cv_search, verbose=0, n_jobs = -1, scoring=eval_metric)
+    
+    # Get best parameters and cross-validation results
     gridsearch.fit(train.drop(columns=Class), train[Class])
     best_params = gridsearch.best_params_
     cv_results = gridsearch.cv_results_
+
+    # Construct dataframe of cross-validation results
     cv_results_df = pd.concat([pd.DataFrame(cv_results["params"]),pd.DataFrame(cv_results["mean_test_score"], columns=[metric]),pd.DataFrame(cv_results["std_test_score"], columns=[metric+'_std'])],axis=1)
     
     return best_params, cv_results_df
 
-def remove_redundant(*dfs, ignore=None):
-    """
-    Find and remove columns where all values are identical across all given dfs
-    :param dfs: pandas dataframes
-    :param ignore: names of columns to ignore
-    :return: list of strings names for columns that are redundant to use as features
-    """
-    # skip None
-    dfs = [df for df in dfs if df is not None]
-    cat = pd.concat(dfs).drop(columns=ignore)
-    redundant = cat.columns[np.all(cat == cat.iloc[0, :], axis=0)]
-    if len(redundant) > 0:
-        log.info("Removed {} out of {} ({:.2f}%) features that never varies".
-                 format(len(redundant), len(cat.columns), len(redundant) / len(cat.columns) * 100))
-        return [df.drop(columns=redundant) for df in dfs]
-    return dfs
 
-
-def feature_prep(train, ignore=None):
+def run(train: pd.DataFrame, Class: str, param_grid: dict, cv_search: int, metric: str, random_state: int, ignore: Union[None, list] = None):
     """
-    Prepare features for random forest. This means we make sure to drop string features and redundant features that never vary.
-    :param train: pd dataframe
-    :param test: pd dataframe
-    :param ignore: columns to ignore that are not features
-    :return: modified train and test set ready for random forest
+    Function for running the GridSearch on the training data. Returns the best parameters and cross-validation results.
+
+    Args:
+        train (pd.DataFrame): training data
+        Class (str): name of Class column in training data
+        param_grid (dict): dict of parameter options
+        cv_search (int): k for crossvalidation
+        metric (str): evaluation metric for search
+        random_state (int): random state for RandomForestClassifier
+        ignore (Union[None, list]): columns to ignore that are not features
+
+    Returns:
+        best_params: dict of best parameter options for best model
+        cv_results_df: dataframe of cross-validation results
     """
 
-    # for now drop string features, but in the future they should maybe be implemented as 1-hot automatically
-    train_feature_names = np.setdiff1d(train.columns, ignore)
-    train_feature_dtypes = train[train_feature_names].dtypes
-    train_nonum = train_feature_names[(train_feature_dtypes != int) & (train_feature_dtypes != float)]
-    if len(train_nonum) > 0:
-        log.info("Dropping non-number feature(s): " + ','.join(train_nonum))
-        train.drop(columns=train_nonum, inplace=True)
+    # Prepare features
+    if ignore is None: ignore = set() # empty set
+    elif np.isscalar(ignore): ignore = {ignore} # single element
+    else: ignore = set(ignore) # full set
 
-    train, = remove_redundant(train, ignore=ignore)
-    return train
-
-def run(train, Class, param_grid, cv_search, metric, random_state, ignore=None):
-    if ignore is None: ignore = set()
-    elif np.isscalar(ignore): ignore = {ignore}
-    else: ignore = set(ignore)
-    ignore = ignore - {Class} # obviously don't ignore the class
+    # Drop columns that are not features, but keep the class column
+    ignore = ignore - {Class}
     train = train.drop(columns=ignore, errors='ignore')
     train = feature_prep(train, ignore.union({Class}))
+
+    # Remove NaN records
     if train.isna().any().any():
         nBefore = len(train)
         train = train.dropna()
         log.warning(f"NaN records removed for training: {nBefore} -> {len(train)}")
+    
+    # Conduct GridSearch
     log.info("Conduct GridSearch.")
     best_params, cv_results_df = grid_search(train, Class, param_grid, cv_search, metric, random_state)
+    
     return best_params, cv_results_df
 
 
 def main(args):
+    """
+    Main function for running the GridSearch on the training data. 
+    Saves the best parameters and cross-validation results to files.
+
+    Args:
+        args: arguments from the parser
+    """
+
+    # Logging setup
     if args.log is None: handlers = None
     else: handlers = [log.StreamHandler(), log.FileHandler(args.log)]
     log.basicConfig(format="%(message)s", level=log.INFO, handlers=handlers)
         
-    # reading
-    
+    # Read infile containing training data    
     infile = pd.read_table(args.infile)
     log.info(f"shape = {infile.shape}")
     
-    #set random state
+    # Set random state
     if args.random_state == None:
         random_state = None
     else:
         random_state = int(args.random_state)
     
-    # the original keys, before any potential annotations are added
+    # Save the original keys, before any potential annotations are added
     infileKeys = infile.columns
+
+    # Iterate over annotation files
     for infname in args.annotate:
         log.info(f"Annotating from {infname}")
+
+        # Read annotation file
         right = pd.read_table(infname)
-        # merge on keys overlapping between the two, and that are given as ids, if ids are given.
+        
+        # Merge on keys overlapping between the the original keys and annotation files. Use those that are given as ids, if ids are given.
         onKeys = np.intersect1d(infileKeys, right.columns)
         if args.ids: onKeys = np.intersect1d(onKeys, args.ids)
         log.info(f"Matching on {','.join(onKeys)}")
-        # merge where the annotation file annotates, i.e. left join with added info from right file.
+
+        # Merge training data file with the annotations, i.e. left join with added info from right file.
         infile = infile.merge(right, on=list(onKeys), how="left", suffixes=('', ' new'))
+        
         # Multiple annotation files can in combination describe the entries in infile, so we replace nans in columns named the same.
         for colname in infile.columns:
+
+            # Identify new version of old columns
             if colname.endswith(" new"):
                 colname_old = colname.removesuffix(" new")
                 log.debug(f"Annotation replacement on {colname_old}")
-                old = infile[colname_old]
-                new = infile[colname]
+                old = infile[colname_old] # old is the original column
+                new = infile[colname] # new is the annotation column
+                
+                # Extract non-nan rows in new, find modifications, and update old
                 rowIdx = ~new.isna()
                 modIdx = ~(old[rowIdx].isna() | (old[rowIdx] == new[rowIdx]))
                 if np.any(modIdx):
                     log.warning(str(modIdx.sum()) + f" modifications on '{colname_old}'.")
                 old.update(new)
+
+                # Remove the new column
                 infile.drop(columns=colname, inplace=True)
         log.info(f"shape = {infile.shape}")
-        
+    
+    # Check for NA in infile, meaning that there are issues with the encoding or the data.
     if infile.isna().any().any():
-        # not using ','.join(...) since it becomes long, e.g. if all seq features are involved.
+        # Not using ','.join(...) since it becomes long, e.g. if all seq features are involved.
         log.warning(f"NA found in infile in column(s): {infile.columns[infile.isna().any()]}")
     
-    #parameter grid generation
+    # Parameter grid generation
     param_grid = param_grid_gen(args.n_estimators, args.criterion, args.max_depth, args.min_samples_split, args.min_samples_leaf, args.max_features)
         
-    # do the feature prep and training
+    # Run GridSearch
     best_param, cv_results_df = run(infile, args.Class, param_grid, args.cv_search, args.metric,random_state=random_state)
     
-    # write best parameters
+    # Write best parameters to txt file
     with open(args.out_param+'.txt','w') as params:
-        #print(best_param)
-        #print(str(best_param))
         params.write(str(best_param))
-    #print(np.array(best_param.keys()))
-    #with open(args.out_param+'.txt','w') as csvfile:
-        #writer = csv.DictWriter(csvfile, fieldnames=best_param.keys())
-        #writer.writeheader()
-        #for data in best_param:
-            #writer.writerow(data)
     
-    # save cv results
+    # Save cv results to tsv file
     cv_results_df.sort_values(args.metric,ascending=False).to_csv(args.cv_results+'.tsv')
     
 if __name__ == '__main__':

@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
+
+"""
+Trains a Random Forest classifier.
+Reads a tab-separated table with header from stdin and saves the model to a file.
+Infile columns:
+    (-c) A class column where 1 is for a positive and 0 for a negative observation.
+    (-F) Feature columns, either here on using -a/--annotate.
+    (-i) Optionally id column(s) that can map to features from (-a).
+"""
+
+# Importing the required libraries
 import argparse
 from argparse import RawTextHelpFormatter
 import sys
-import math
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import logging as log
-import re
+from typing import Union
 
+from src.helper_functions import feature_prep
 
+# Set up the argument parser
 def get_parser():
     parser = argparse.ArgumentParser(description="""
-    Train a Random Forest classifier. 
+    Trains a Random Forest classifier. 
     Reads a tab-separated table with header from stdin and writes prediction table to stdout, 
     if testing. Infile columns:
         (-c) A class column where 1 is for a positive and 0 for a negative observation. 
@@ -41,8 +53,7 @@ def get_parser():
         help="The number of features to consider when looking for the best split.")
     parser.add_argument("--class-weight",
         help="Randomforest class weight. Default=equal weight to each datapoint.", choices=["balanced", "balanced_subsample"])
-    # uppercase Class since class is a reserved word
-    parser.add_argument("-c", "--class", dest="Class",
+    parser.add_argument("-c", "--class", dest="Class", # uppercase Class since class is a reserved word
         help="Name of column with class labels in training data. Default=class.", default="class")
     parser.add_argument("--log",
         help="Logging is sent to stderr. Set flag to a filename to also write to file.")
@@ -51,127 +62,147 @@ def get_parser():
     
     return parser
 
-
-# functions
-
-
-def remove_redundant(*dfs, ignore=None):
+def training(train: pd.DataFrame, Class: str, n_estimators: int, criterion: str, max_depth: int, min_samples_split: int,
+              min_samples_leaf: int, max_features: Union[str,int], class_weight: str, random_state: int):
     """
-    Find and remove columns where all values are identical across all given dfs
-    :param dfs: pandas dataframes
-    :param ignore: names of columns to ignore
-    :return: list of strings names for columns that are redundant to use as features
-    """
-    # skip None
-    dfs = [df for df in dfs if df is not None]
-    cat = pd.concat(dfs).drop(columns=ignore)
-    redundant = cat.columns[np.all(cat == cat.iloc[0, :], axis=0)]
-    if len(redundant) > 0:
-        log.info("Removed {} out of {} ({:.2f}%) features that never varies".
-                 format(len(redundant), len(cat.columns), len(redundant) / len(cat.columns) * 100))
-        return [df.drop(columns=redundant) for df in dfs]
-    return dfs
+    Perform training of random forest classifier with the given features. Returns the trained model.
 
-
-def feature_prep(train, ignore=None):
-    """
-    Prepare features for random forest. This means we make sure to drop string features and redundant features that never vary.
-    :param train: pd dataframe
-    :param ignore: columns to ignore that are not features
-    :return: modified train set ready for random forest
+    Args:
+        train (pd.DataFrame): training dataset with all features annotated.
+        Class (str): name of column with class label.
+        n_estimators (int): number of trees in the forest.
+        criterion (str): criterion for split quality.
+        max_depth (int): maximum depth of the tree.
+        min_samples_split (int): minimum number of samples required to split an internal node.
+        min_samples_leaf (int): minimum number of samples required to be at a leaf node.
+        max_features (int): number of features to consider when looking for the best split.
+        class_weight (str): class weight.
+        random_state (int): random state for reproducibility.
+        
+    Returns:
+        RandomForestClassifier: trained model
     """
 
-    train_feature_names = np.setdiff1d(train.columns, ignore)
-    train_feature_dtypes = train[train_feature_names].dtypes
-    train_nonum = train_feature_names[(train_feature_dtypes != int) & (train_feature_dtypes != float)]
-    if len(train_nonum) > 0:
-        log.info("Dropping non-number feature(s): " + ','.join(train_nonum))
-        train.drop(columns=train_nonum, inplace=True)
-
-    train, = remove_redundant(train, ignore=ignore)
-    return train
-
-
-def training(train, Class, n_estimators, criterion, class_weight,random_state):
-    """
-    Perform training of random forest classifier with proper features given.
-    :param train: training features.
-    :param Class: name of column with class label.
-    :param n_estimators:
-    :param criterion:
-    :param class_weight:
-    :return: trained RandomForestClassifier
-    """
-    clf = RandomForestClassifier(n_estimators=n_estimators, n_jobs=-1, criterion=criterion, class_weight=class_weight,random_state=random_state)
+    # Train the model
+    clf = RandomForestClassifier(n_estimators=n_estimators, n_jobs=-1, criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split,
+                                 min_samples_leaf=min_samples_leaf, max_features=max_features,class_weight=class_weight,random_state=random_state)
     clf.fit(train.drop(columns=Class), train[Class])
     return clf
 
-def train_func(train, Class, n_estimators, criterion, class_weight,random_state, ignore=None):
-    if ignore is None: ignore = set()
-    elif np.isscalar(ignore): ignore = {ignore}
-    else: ignore = set(ignore)
-    ignore = ignore - {Class} # obviously don't ignore the class
+def train_func(train: pd.DataFrame, Class: str, n_estimators: int, criterion: str, max_depth: int, min_samples_split: int,
+              min_samples_leaf: int, max_features: Union[str,int], class_weight: str, random_state: int, ignore: Union[None, list] = None):
+    """
+    Function for preparing the training data and training the Random Forest model.
+    Returns the trained model.
+
+    Args:
+        train (pd.DataFrame): training dataset with all features annotated.
+        Class (str): name of column with class label.
+        n_estimators (int): number of trees in the forest.
+        criterion (str): criterion for split quality.
+        max_depth (int): maximum depth of the tree.
+        min_samples_split (int): minimum number of samples required to split an internal node.
+        min_samples_leaf (int): minimum number of samples required to be at a leaf node.
+        max_features (int): number of features to consider when looking for the best split.
+        class_weight (str): class weight.
+        random_state (int): random state for reproducibility.
+        ignore (Union[None, list]): columns to ignore that are not features
+    """
+
+
+    # Prepare features
+    if ignore is None: ignore = set() # empty set
+    elif np.isscalar(ignore): ignore = {ignore} # single element
+    else: ignore = set(ignore) # full set
+
+    # Drop columns that are not features, but keep the class column
+    ignore = ignore - {Class}
     train = train.drop(columns=ignore, errors='ignore')
     train = feature_prep(train, ignore.union({Class}))
+
+    # Remove NaN records
     if train.isna().any().any():
         nBefore = len(train)
         train = train.dropna()
         log.warning(f"NaN records removed for training: {nBefore} -> {len(train)}")
+
+    # Train the model
     log.info("Train random forest model.")
-    clf = training(train, Class, n_estimators, criterion, class_weight,random_state)
+    clf = training(train, Class, n_estimators, criterion, max_depth, min_samples_split, min_samples_leaf, max_features, class_weight, random_state)
     return clf
 
 def main(args):
+    """
+    Main function for training a Random Forest classifier. 
+    Saves the model to a file specified by the --out argument.
+    Args:
+        args: arguments from the parser
+    """
+
+    # Logging setup
     if args.log is None: handlers = None
     else: handlers = [log.StreamHandler(), log.FileHandler(args.log)]
     log.basicConfig(format="%(message)s", level=log.INFO, handlers=handlers)
-    
-    # reading
-    
+        
+    # Read infile containing training data    
     infile = pd.read_table(args.infile)
     log.info(f"shape = {infile.shape}")
     
-    #set random state
+    # Set random state
     if args.random_state == None:
         random_state = None
     else:
         random_state = int(args.random_state)
     
-    # the original keys, before any potential annotations are added
+    # Save the original keys, before any potential annotations are added
     infileKeys = infile.columns
-    print(infileKeys)
+
+    # Iterate over annotation files
     for infname in args.annotate:
         log.info(f"Annotating from {infname}")
+
+        # Read annotation file
         right = pd.read_table(infname)
-        # merge on keys overlapping between the two, and that are given as ids, if ids are given.
+        
+        # Merge on keys overlapping between the the original keys and annotation files. Use those that are given as ids, if ids are given.
         onKeys = np.intersect1d(infileKeys, right.columns)
         if args.ids: onKeys = np.intersect1d(onKeys, args.ids)
         log.info(f"Matching on {','.join(onKeys)}")
-        # merge where the annotation file annotates, i.e. left join with added info from right file.
+
+        # Merge training data file with the annotations, i.e. left join with added info from right file.
         infile = infile.merge(right, on=list(onKeys), how="left", suffixes=('', ' new'))
+        
         # Multiple annotation files can in combination describe the entries in infile, so we replace nans in columns named the same.
         for colname in infile.columns:
+
+            # Identify new version of old columns
             if colname.endswith(" new"):
                 colname_old = colname.removesuffix(" new")
                 log.debug(f"Annotation replacement on {colname_old}")
-                old = infile[colname_old]
-                new = infile[colname]
+                old = infile[colname_old] # old is the original column
+                new = infile[colname] # new is the annotation column
+                
+                # Extract non-nan rows in new, find modifications, and update old
                 rowIdx = ~new.isna()
                 modIdx = ~(old[rowIdx].isna() | (old[rowIdx] == new[rowIdx]))
                 if np.any(modIdx):
                     log.warning(str(modIdx.sum()) + f" modifications on '{colname_old}'.")
                 old.update(new)
+
+                # Remove the new column
                 infile.drop(columns=colname, inplace=True)
         log.info(f"shape = {infile.shape}")
     
+    # Check for NA in infile, meaning that there are issues with the encoding or the data.
     if infile.isna().any().any():
+        # Not using ','.join(...) since it becomes long, e.g. if all seq features are involved.
         log.warning(f"NA found in infile in column(s): {infile.columns[infile.isna().any()]}")
 
-    # train
+    # Train the model
+    clf = train_func(infile, args.Class, args.n_estimators, args.criterion, args.max_depth, args.min_samples_split,
+                     args.min_samples_leaf, args.max_features, args.class_weight, random_state, ignore=args.ids)
 
-    clf = train_func(infile, args.Class, args.n_estimators, args.criterion, args.class_weight,random_state)
-
-    #Output the trained model
+    # Output the trained model
     joblib.dump(clf, args.out)
     
 if __name__ == '__main__':
