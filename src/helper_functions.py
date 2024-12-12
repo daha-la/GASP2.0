@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 from typing import Union
 import logging as log
-
+import Bio.PDB as bpdb
+from Bio import AlignIO
+assert log                                                                                                                          
 def param_into_list(param):
     """
     Function to convert parameter into list if it is not already a list
@@ -94,3 +96,98 @@ def feature_prep(train: pd.DataFrame, ignore: Union[None, list] = None):
     train, = remove_redundant(train, ignore=ignore)
     
     return train
+
+def alignment_to_embedding(alignment: object, mean_rep_dict: dict):
+    """
+    Function to convert an alignment to an embedding using the mean representation dictionary.
+    Gaps ('-') in the alignment are replaced with zeros in the embedding, while the remaining residues are replaced with their mean representation.
+    Requires the mean representation dictionary to be generated beforehand, and in the format {protein_id: mean_representation}.
+    The mean representation must have the same length as the protein sequence.
+
+    Args:
+        alignment (object): BioPython MSA object.
+        mean_rep_dict (dict): Dictionary with the mean representation for each protein in the alignment.
+
+    Returns:
+        rep_mean_aligned_df (pd.DataFrame): DataFrame with the mean aligned representation for each protein in the alignment.
+        rep_mean_aligned_Nt_df (pd.DataFrame): DataFrame with the mean aligned representation for the N-terminal half of each protein in the alignment.
+    """
+    # Initialize DataFrame variables to store the mean aligned representations
+    rep_mean_aligned_df = None
+    rep_mean_aligned_Nt_df = None
+
+    # Loop over the proteins in the alignment
+    for prot in alignment:
+
+        # Get the sequence and the protein ID
+        seq_ = np.array(prot.seq)
+        id_ = prot.id
+
+        # If the dataframe is not fully initialized, do so
+        if rep_mean_aligned_df is None:
+            rep_mean_aligned_df = pd.DataFrame(columns=np.arange(len(seq_)))
+            rep_mean_aligned_Nt_df = pd.DataFrame(columns=np.arange(len(seq_)/2))
+        
+        # Replace the '/' character in the ID to ensure consistency between the file name and the dictionary key
+        if id_.count('/') == 1:
+            id_ = id_.replace('/','_')
+
+        # Create an array with the mean representation for the protein, using the alignment to place the values in the correct position
+        array_ = np.zeros(len(seq_)) # Initialize the array with zeros, such that the '-' characters will remain as zeros
+        array_[np.where(seq_!='-')] = mean_rep_dict[id_]
+
+        # Store the mean aligned representation for the full sequence and the N-terminal half
+        rep_mean_aligned_df.loc[id_] = array_
+        rep_mean_aligned_Nt_df.loc[id_] = array_[:int(len(array_)/2)]
+
+    return rep_mean_aligned_df, rep_mean_aligned_Nt_df
+
+
+class NtermSelectPDB(bpdb.Select):
+    """
+    Class to select residues in the N-terminal half of a protein chain in a PDB file.
+    Takes a PDB file and a chain ID as input, and saves the N-terminal half of the chain to a new PDB file.
+    """
+
+    def __init__(self, prot_path: str, chain_id: str):
+        """
+        Initialize the class with the protein structure and chain ID.
+
+        Args:
+            prot_path (str): Path to the PDB file.
+            chain_id (str): Chain ID of the protein.
+        """
+        self.chain_id = chain_id
+
+        # Load the protein structure and get the length of the chain
+        self.struc = bpdb.PDBParser().get_structure('temp', prot_path)
+        self.prot_len = len(self.struc[0][chain_id])  # Length of the chain
+        self.start_res = int(self.prot_len / 2)  # Midpoint of the protein
+        self.end_res = self.prot_len  # Full length of the protein
+
+    def accept_residue(self, res):
+        """
+        Exlude residues outside the a specified range in the specified chain.
+
+        Args:
+            res: Residue object from Bio.PDB
+
+        Returns:
+            bool: True if the residue should be kept, False if it should be excluded.
+        """
+        # Keep residues outside the second half of the protein
+        if self.start_res <= res.id[1] <= self.end_res and res.parent.id == self.chain_id:
+            return False  # Exclude these residues
+        return True  # Keep all others
+
+    def save_nterm(self, output_path):
+        """
+        Save the N-terminal half of the protein chain to a new PDB file.
+
+        Args:
+            output_path (str): Path to save the new PDB file.
+        """
+
+        nterm = bpdb.PDBIO()
+        nterm.set_structure(self.struc)
+        nterm.save(output_path, self)

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import logging as log
-from degnutil import input_output as io
+from degnlib.degnutil import input_output as io
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Encode features for ML, e.g. convert sequences to numeric encoding, remove redundant features, indicate train vs test set. Read train set from stdin, pipe /dev/null to use no train set.")
