@@ -7,16 +7,17 @@
 # Remember to have installed muscle. Can be done with conda install muscle -c bioconda
 
 # Define the path to subfunctions and degnlib
-LIB=../degnlib/subfunctions
-export PYTHONPATH="$PYTHONPATH:../degnlib"
+LIB=../src/degnlib/subfunctions
+export PYTHONPATH="$PYTHONPATH:../src/degnlib"
 
 # Name of the file with the new sequences to be encoded. Should be in ../data/fasta/ folder using the .faa format.
 # Given as an argument to the script.
 new_seqs=$1
 
 # Define the input files
-INFILE=`ls ../alignment/seqs.faa`
-NEWSEQ=../data/fasta/${new_seqs}.faa
+
+INFILE=`ls ../Representation_Strategies/protein/methods/alignment/seqs.faa`
+NEWSEQ=../Data/fasta/${new_seqs}.faa
 
 # The alignment quality threshold for removing low quality alignments. Lower number to accept more sequences, -1 to use all sequences.
 THRESH=-1
@@ -40,5 +41,5 @@ cat $INFILE $NEWSEQ | $LIB/fasta_table.py -i enzyme -s seq_unaligned |
 # Encode all sequences with the blosum62amb encoding (BLOSUM62 with ambiguous codes).
 # All features are kept, but one could use -k flag to ensure.
 gunzip -c new/muscle_qual.hmm.nterm.tsv.gz |
-    python encode_features.py -i enzyme --aa seq --aa-encoding ../encodings/raw/blosum62Amb.tsv |
-    gzip -c > ../encodings/blosum62Amb_${new_seqs}.tsv.gz
+    python ../src/encode_features.py -i enzyme --aa seq --aa-encoding ../encodings/raw/blosum62Amb.tsv |
+    gzip -c > encodings/blosum62Amb_${new_seqs}.tsv.gz

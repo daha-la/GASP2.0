@@ -19,7 +19,12 @@ from sklearn.ensemble import RandomForestClassifier
 import joblib
 import logging as log
 from typing import Union
+import os
 
+# Local imports
+current_dir = os.path.abspath('')
+project_root = os.path.abspath(os.path.join(current_dir, '../'))
+sys.path.append(project_root)
 from src.helper_functions import feature_prep
 
 # Set up the argument parser
@@ -41,15 +46,15 @@ def get_parser():
         help="The model can be saved to this file (e.g. randomforest.joblib.gz).\nBy default the model is not saved.")
     parser.add_argument("-n", "--estimators", dest="n_estimators", type=int, default=100,
         help="Number of trees in the forest.")
-    parser.add_argument("-crit", dest="criterion", default="gini",
+    parser.add_argument("-crit", dest="criterion", type=str, default="gini",
         help="Randomforest criterion for split quality.", choices=["gini", "entropy"])
-    parser.add_argument("-maxD", "--max_depth", dest="max_depth", type=int, default=None, nargs='+',
+    parser.add_argument("-maxD", "--max_depth", dest="max_depth", default=None,
         help="The maximum depth of the tree.")
-    parser.add_argument("-minS", "--min_split", dest="min_samples_split", type=int, default=2, nargs='+',
+    parser.add_argument("-minS", "--min_split", dest="min_samples_split", type=int, default=2,
         help="The minimum number of samples required to split an internal node.")
-    parser.add_argument("-minL", "--min_leaf", dest="min_samples_leaf", type=int, default=1, nargs='+',
+    parser.add_argument("-minL", "--min_leaf", dest="min_samples_leaf", type=int, default=1,
         help="The minimum number of samples required to be at a leaf node.")
-    parser.add_argument("-maxF", "--max_feat", dest="max_features", default="sqrt", nargs='+',
+    parser.add_argument("-maxF", "--max_feat", dest="max_features", default="sqrt",
         help="The number of features to consider when looking for the best split.")
     parser.add_argument("--class-weight",
         help="Randomforest class weight. Default=equal weight to each datapoint.", choices=["balanced", "balanced_subsample"])
@@ -117,6 +122,8 @@ def train_func(train: pd.DataFrame, Class: str, n_estimators: int, criterion: st
 
     # Drop columns that are not features, but keep the class column
     ignore = ignore - {Class}
+    print(ignore)
+    print(ignore.union({Class}))
     train = train.drop(columns=ignore, errors='ignore')
     train = feature_prep(train, ignore.union({Class}))
 
@@ -198,9 +205,12 @@ def main(args):
         # Not using ','.join(...) since it becomes long, e.g. if all seq features are involved.
         log.warning(f"NA found in infile in column(s): {infile.columns[infile.isna().any()]}")
 
+    #Fix None parameters
+    if args.max_depth == 'None': args.max_depth = None
+    
     # Train the model
     clf = train_func(infile, args.Class, args.n_estimators, args.criterion, args.max_depth, args.min_samples_split,
-                     args.min_samples_leaf, args.max_features, args.class_weight, random_state, ignore=args.ids)
+                     args.min_samples_leaf, args.max_features, args.class_weight, random_state, ignore=None)
 
     # Output the trained model
     joblib.dump(clf, args.out)

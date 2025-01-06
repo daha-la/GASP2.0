@@ -1,31 +1,24 @@
 # GASP2.0
-An updated version of the original GASP model
+An updated version of the original Glycosyltransferase Acceptor Specificity Predictor (GASP) model. In this new version, the encoding pipelines and model architecture has been revamped to allow for enhanced processing of the enzyme infomation.
 
-This repo contains all code used to make GASP2.0. It contains the following subfolders:
-- Alignment
-- Data
-- Representation Strategies
-- Model Architecture
-- Run
-- Results
+## Installation
+To install GASP2.0:
+- Make sure Anaconda or Miniconda is installed
+- Copy this GitHub repository
+- Create the conda environments (requirement files can be found in [src](src)) using the commands below
+```bash
+conda create -n GASP2.0 python=3.11
+conda activate GASP2.0
+conda install pip
+pip install -r GASP2_requirements.txt
+```
+```bash
+conda create -n prog python=3.12
+conda activate prog
+conda install pip
+pip install -r prog_requirements.txt
+```
 
-See below for a thorough descriptions of the different elements
-
-## Alignment
-
-## Data
-
-## Representation Strategies
-
-## Model Architectures
-
-## Run
-
-## Results
-
-## GASP1.0
-
-## src
 
 ## Attribution  
 GASP2.0 is an extension of the original GASP model, developed by David Harding-Larsen and Christian Degnbol Madsen.  

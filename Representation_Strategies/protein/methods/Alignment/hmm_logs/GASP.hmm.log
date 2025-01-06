@@ -1,0 +1,15 @@
+# hmmbuild :: profile HMM construction from multiple sequence alignments
+# HMMER 3.4 (Aug 2023); http://hmmer.org/
+# Copyright (C) 2023 Howard Hughes Medical Institute.
+# Freely distributed under the BSD open source license.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# input alignment file:             /Users/dahala/GitHub/GASP2.0/Representation_Strategies/protein/methods/alignment/seqs.afa
+# output HMM file:                  /Users/dahala/GitHub/GASP2.0/Representation_Strategies/protein/methods/alignment/hmm_models/GASP.hmm
+# input alignment is asserted as:   protein
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# idx name                  nseq  alen  mlen eff_nseq re/pos description
+#---- -------------------- ----- ----- ----- -------- ------ -----------
+1     seqs                   197  1230   470     4.39  0.590 
+
+# CPU time: 0.13u 0.00s 00:00:00.13 Elapsed: 00:00:00.13
