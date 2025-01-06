@@ -4,8 +4,8 @@ An updated version of the original Glycosyltransferase Acceptor Specificity Pred
 ## Installation
 To install GASP2.0:
 - Make sure Anaconda or Miniconda is installed
-- Copy this GitHub repository
-- Create the conda environments (requirement files can be found in [src](src)) using the commands below
+- Clone this GitHub repository
+- Create the two following conda environments (requirement files can be found in [src](src)) using the commands below
 ```bash
 conda create -n GASP2.0 python=3.11
 conda activate GASP2.0
@@ -19,6 +19,16 @@ conda install pip
 pip install -r prog_requirements.txt
 ```
 
+To run the original version of GASP, please also create a third environment
+```bash
+conda create -n GASP1.0 python=3.10
+conda activate GASP2.0
+conda install pip
+pip install -r GASP1_requirements.txt
+```
+
+## Run
+All scripts for running GASP2.0 [RUN](RUN) subfolder
 
 ## Attribution  
 GASP2.0 is an extension of the original GASP model, developed by David Harding-Larsen and Christian Degnbol Madsen.  
