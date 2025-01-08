@@ -11,10 +11,13 @@ When running an alternative testset - such as when evaluting the predicted accep
 ````bash
 bash RUN_GASP1.0_newdata.sh "new_data" original
 ````
-Please change the "new_data" to the name of the dataset. 
+Please change the "new_data" to the name of the dataset. If the dataset is a combination dataset, please change the optional variable. For more information, see the [Run](../Run/) folder.
+````bash
+bash RUN_GASP1.0_newdata.sh "new_data" original yes
+````
 For evalutating new proteins, please first create a new fasta file containing the new proteins (in .faa format) and save it in the [fasta](../Data/fasta/) folder. As for the running GASP with new data, please save this new dataset in the [Data](../Data/) folder. Finally, run the encoding script for new sequences use the GASP bash script for new data.
 ````bash
 bash encode_new_seqs_GASP.sh "new_seqs"
 bash RUN_GASP1.0_newdata.sh "new_data" "new_seqs"
 ````
-Please change the "new_seqs" to the name of the fasta file and "new_data" to the name of the new dataset when executing the scripts.
+Please change the "new_seqs" to the name of the fasta file and "new_data" to the name of the new dataset when executing the scripts. Again, if the dataset is a combination dataset, please change the optional variable as above for the run script.
