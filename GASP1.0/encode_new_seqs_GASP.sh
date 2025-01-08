@@ -41,5 +41,5 @@ cat $INFILE $NEWSEQ | $LIB/fasta_table.py -i enzyme -s seq_unaligned |
 # Encode all sequences with the blosum62amb encoding (BLOSUM62 with ambiguous codes).
 # All features are kept, but one could use -k flag to ensure.
 gunzip -c new/muscle_qual.hmm.nterm.tsv.gz |
-    python ../src/encode_features.py -i enzyme --aa seq --aa-encoding ../encodings/raw/blosum62Amb.tsv |
+    python encode_features.py -i enzyme --aa seq --aa-encoding encodings/raw/blosum62Amb.tsv |
     gzip -c > encodings/blosum62Amb_${new_seqs}.tsv.gz

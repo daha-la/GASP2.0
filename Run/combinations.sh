@@ -5,4 +5,4 @@ target_acceptor=$2
 infile="../data/fasta/$name.faa"
 outfile="combinations/$name"
 
-python combinations.py -in $infile -out $outfile -sub $acceptor -target $target_acceptor
+python ../src/combinations.py -in $infile -out $outfile -sub $acceptor -target $target_acceptor

@@ -10,7 +10,7 @@
 # - Testset from GASP paper
 
 chemFeat="../Representation_Strategies/substrate/encodings/acceptors3_features.tsv"
-blosum62Amb="encodings/blosum62Amb.tsv.gz"
+blosum62Amb="encodings/blosum62Amb_original.tsv.gz"
 
 random_state=42
 

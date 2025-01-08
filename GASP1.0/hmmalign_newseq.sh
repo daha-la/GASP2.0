@@ -12,7 +12,7 @@ LIB=../src/degnlib/subfunctions
 export PYTHONPATH="$PYTHONPATH:../src/degnlib"
 
 # Align all new sequences to the HMM
-hmmalign --trim --amino --outformat A2M ../Representation_Strategies/protein/methods/alignment/GASP.hmm - > new/muscle.hmm.a2m
+hmmalign --trim --amino --outformat A2M ../Representation_Strategies/protein/methods/Alignment/hmm_models/GASP.hmm - > new/muscle.hmm.a2m
 
 # Remove non-consensus
 $LIB/fasta_delete_lower.py new/muscle.hmm.{a2m,faa}

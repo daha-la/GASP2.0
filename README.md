@@ -22,7 +22,7 @@ pip install -r prog_requirements.txt
 To run the original version of GASP, please also create a third environment
 ```bash
 conda create -n GASP1.0 python=3.10
-conda activate GASP2.0
+conda activate GASP1.0
 conda install pip
 pip install -r GASP1_requirements.txt
 ```
@@ -46,7 +46,7 @@ When making predictions or training alternative models on new datasets, do the f
 - Save the new datasets in the [Data](Data) folder
 - Create a new fasta file in [Data/fasta](Data/fasta) containing all proteins used for training and testing.
 - Obtain the representations of the proteins from the new fasta file using the encoding techniques found in [Representation_Strategies/protein/methods](Representation_strategies/protein/methods/). Remember to change the variables of the notebooks to match the fasta file. When using "progres", remember to create new subfolders for the 3D structures of any new protein.
-- Run the desired architecture using the bash scripts found in [Run](Run), changing the variables to fit the new files and encodings.
+- Run the desired architecture using the bash scripts found in [Run](Run), changing the variables to fit the new files and encodings. The new predictions can be found in [Results/predictions](Results/predictions)
 
 ## Attribution  
 GASP2.0 is an extension of the original GASP model, developed by David Harding-Larsen and Christian Degnbol Madsen.  
