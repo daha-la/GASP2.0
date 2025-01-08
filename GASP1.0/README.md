@@ -1,5 +1,7 @@
 # GASP1.0
-This folder contains all code nescessary for running the first version of GASP. Before running any scripts, please activate the conda environment for GASP1.0.
+This folder contains all code nescessary for running the first version of GASP. For more information, please refer to the [GASP paper](https://pubs.acs.org/doi/10.1021/acsomega.4c01583) and the [GitHub](https://github.com/degnbol/GASP).
+
+Before running any scripts, please activate the conda environment for GASP1.0.
 ````bash
 conda activate GASP1.0
 ````

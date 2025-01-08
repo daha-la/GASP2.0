@@ -15,8 +15,8 @@ blosum62Amb="encodings/blosum62Amb_original.tsv.gz"
 random_state=42
 
 # train with original settings
-python ../Model_Architectures/randomforest/randomforest_train.py -i enzyme cid -c reaction -n 1000 -o results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb -rand $random_state < ../Data/trainset_GTP.tsv
+python ../src/Model_Architectures/randomforest/randomforest_train.py -i enzyme cid -c reaction -n 1000 -o results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb -rand $random_state < ../Data/trainset_GTP.tsv
 
 # test
-python ../Model_Architectures/randomforest/randomforest_test.py -m results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb < ../Data/testset_D1.tsv > results/predictions/pred_blosum62Amb.tsv
+python ../src/Model_Architectures/randomforest/randomforest_test.py -m results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb < ../Data/testset_D1.tsv > results/predictions/pred_blosum62Amb.tsv
 

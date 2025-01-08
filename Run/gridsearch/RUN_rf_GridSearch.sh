@@ -23,6 +23,6 @@ cv_results=results/hyperparam_tuning/strucinform/cv_results/progres_Nt_rf_cv${cv
 random_state=42
 
 
-python randomforest/GridSearch.py -i enzyme cid -c reaction -a $chemFeat $gnn_embedding -n $n_estimators --crit $criterion -maxD $max_depth -minS $min_samples_split -minL $min_samples_leaf -maxF $max_features --cv_s $cv_search --op $outparam --cv_res $cv_results -rand $random_state < data/trainset_GTP.tsv
+python ../src/Model_Architectures/randomforest/GridSearch.py -i enzyme cid -c reaction -a $chemFeat $gnn_embedding -n $n_estimators --crit $criterion -maxD $max_depth -minS $min_samples_split -minL $min_samples_leaf -maxF $max_features --cv_s $cv_search --op $outparam --cv_res $cv_results -rand $random_state < data/trainset_GTP.tsv
 
 

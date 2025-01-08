@@ -25,4 +25,4 @@ if [ $combinations = "yes" ]; then
 fi
 
 # test
-python ../randomforest/randomforest_test.py -m ../results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb_newseq < $data > predictions/pred_blosum62Amb_$new_data.tsv
+python ../src/randomforest/randomforest_test.py -m ../results/models/model_blosum62Amb.rf.joblib.gz -a $chemFeat $blosum62Amb_newseq < $data > predictions/pred_blosum62Amb_$new_data.tsv

@@ -28,8 +28,7 @@ pip install -r GASP1_requirements.txt
 ```
 
 ## Run
-All scripts for running GASP2.0 can be found in the [RUN](RUN) subfolder. Simply run the bash scripts in the terminal.
-For example, to run the default random forest version of GASP2.0, use the following command:
+All scripts for running GASP2.0 can be found in the [RUN](RUN) subfolder. For example, to run the default random forest version of GASP2.0, use the following command:
 ```bash
 bash RUN_rf.sh
 ```
